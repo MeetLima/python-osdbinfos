@@ -1,6 +1,8 @@
 # coding: utf-8
 from __future__ import unicode_literals
+import os
 import sys
+import tempfile
 
 import xmlrpclib
 from datetime import datetime, timedelta
@@ -10,15 +12,27 @@ import struct
 
 import pkg_resources
 from minibelt import json_loads, json_dumps
+from dogpile.cache import make_region
 
 import logging
 logger = logging.getLogger(__name__)
 
+from version import __version__
 
-USER_AGENT = "OSTestUserAgent"
+
+USER_AGENT = "OsdbInfos v%s" % __version__
 
 
 TOKEN_EXPIRATION = timedelta(minutes=14)
+
+region = make_region().configure(
+    'dogpile.cache.dbm',
+    expiration_time=3600,
+    arguments={
+        "filename": os.path.join(tempfile.gettempdir(), "osdbinfos.cache")
+    }
+)
+
 
 class OpenSutitles(object):
     STATUS_OK = '200 OK'
@@ -31,15 +45,15 @@ class OpenSutitles(object):
         self.password = password
         self.server = xmlrpclib.ServerProxy(self.url)
         self.last_query_time = None
-        self.state_filename=pkg_resources.resource_filename(__name__, 'state.dat')
+        self.state_filename = os.path.join(tempfile.gettempdir(), 'osdbinfos.dat')
         self.load_state()
 
     def store_state(self):
         """ Store last query time + token to qvoidtoo many registration on OSDB
         """
-        state={
-                'last_query_time' : self.last_query_time,
-                'token':self.token
+        state = {
+            'last_query_time': self.last_query_time,
+            'token': self.token
         }
         with open(self.state_filename, 'w') as fstate:
             fstate.write(json_dumps(state))
@@ -50,8 +64,8 @@ class OpenSutitles(object):
             with open(self.state_filename, 'r') as fstate:
                 try:
                     state = json_loads(fstate.read())
-                    self.last_query_time=state['last_query_time']
-                    self.token=state['token']
+                    self.last_query_time = state['last_query_time']
+                    self.token = state['token']
                 except ValueError:
                     logger.debug("Couldnot deserialize state")
 
@@ -68,12 +82,12 @@ class OpenSutitles(object):
     def register(self):
         if self.is_token_expired():
             logger.debug("Registering")
-            result = self.server.LogIn(self.user, self.password, 'en', USER_AGENT)
+            result = self.server.LogIn(
+                self.user, self.password, 'en', USER_AGENT)
             if result is not None and "token" in result:
                 self.token = result["token"]
         else:
             logger.debug("Token do not expires yet, no need for registration")
-
 
     def get_hash(self, path):
         """ Return the computed hash to be sent to OS server"""
@@ -118,7 +132,7 @@ class OpenSutitles(object):
             imdbid = 'tt' + imdbid
         return imdbid.encode("utf-8")
 
-
+    @region.cache_on_arguments()
     def get_infos(self, *movie_hash):
         self.register()
         self.last_query_time = datetime.now()
@@ -159,9 +173,9 @@ class OpenSutitles(object):
                             result['season_number'] = int(
                                 result['season_number']
                             )
-                        except (TypeError,) as e:
+                        except (TypeError,):
                             logger.exception("season number was none")
-                        except (ValueError,) as e:
+                        except (ValueError,):
                             logger.exception(
                                 u"season number was not an integer"
                             )
@@ -186,18 +200,23 @@ class OpenSutitles(object):
         return ret
 
     def get_files_infos(self, files):
-        _hashs_files = {osdb.get_hash(path):path for path in files}
+        _hashs_files = {self.get_hash(path): path for path in files}
 
-        _hashs_infos = osdb.get_infos(*_hashs_files.keys())
+        _hashs_infos = self.get_infos(*_hashs_files.keys())
 
         _files_hashes = {
-                _hashs_files.get(_hash, None): _hashs_infos.get(_hash, None)
-                for _hash in _hashs_infos
+            _hashs_files.get(_hash, None): _hashs_infos.get(_hash, None)
+            for _hash in _hashs_infos
         }
         return _files_hashes
 
+def main():
+    osdb = OpenSutitles()
+    if len(sys.argv) > 1:
+        print(json_dumps(osdb.get_files_infos(sys.argv[1:])))
+    else:
+        print "Please provide one or more path as argument"
+        exit(1)
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
-    osdb = OpenSutitles()
-    print(json_dumps(osdb.get_files_infos(sys.argv[1:])))
+    main()
