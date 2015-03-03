@@ -1,3 +1,9 @@
+[![Latest Version](https://pypip.in/version/osdbinfos/badge.svg)](https://pypi.python.org/pypi/osdbinfos/)
+[![Supported Python versions](https://pypip.in/py_versions/osdbinfos/badge.svg)](https://pypi.python.org/pypi/osdbinfos/)
+[![Wheel Status](https://pypip.in/wheel/osdbinfos/badge.svg)](https://pypi.python.org/pypi/osdbinfos/)
+[![License](https://pypip.in/license/osdbinfos/badge.svg)](https://pypi.python.org/pypi/osdbinfos/)
+
+
 # About
 
 osdbinfos let you identify a local video file based on its content and the help of the [opensubtitles](http://www.opensubtitles.org/) [API](trac.opensubtitles.org/projects/opensubtitles/wiki/XMLRPC)
