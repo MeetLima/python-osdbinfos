@@ -1,0 +1,2 @@
+minibelt>=0.1.1
+dogpile.cache>=0.5.6

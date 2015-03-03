@@ -1,3 +1,8 @@
+# ignore dogpile cache
+*.dbm*
+# ignore .dat files
+*.dat
+
 # Created by https://www.gitignore.io
 
 ### Vim ###
