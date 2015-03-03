@@ -1,7 +1,7 @@
+import os
 from setuptools import setup, find_packages
-import version
 
-exec(open('src/version.py').read())
+__version__="0.0.1"
 
 setup(
     name='osdbinfos',
@@ -16,8 +16,8 @@ setup(
     package_dir={'': 'src'},
     packages=find_packages('src', exclude='docs'),
     entry_points={
-            'console_scripts': [
+        'console_scripts': [
                 'osdbinfos-example = osdbinfos:main',
-            ]
+        ]
     },
 )

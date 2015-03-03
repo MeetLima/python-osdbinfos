@@ -17,7 +17,7 @@ from dogpile.cache import make_region
 import logging
 logger = logging.getLogger(__name__)
 
-from version import __version__
+__version__="0.0.1"
 
 
 USER_AGENT = "OsdbInfos v%s" % __version__
