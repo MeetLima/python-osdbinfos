@@ -94,7 +94,7 @@ class OpenSutitles(object):
         logger.debug("Conpute hash for path %s", path)
         try:
 
-            longlongformat = 'q'  # long long
+            longlongformat = b'q'  # long long
             bytesize = struct.calcsize(longlongformat)
 
             with open(path, "rb") as f:
