@@ -1,7 +1,7 @@
 import os
 from setuptools import setup, find_packages
 
-__version__="0.0.2"
+__version__="0.0.3"
 
 setup(
     name='osdbinfos',
@@ -9,7 +9,7 @@ setup(
     author='Jc Saad-Dupuy 2015',
     description='Identify videos files from opensubtitle webservice',
     long_description=open('README.md').read(),
-    license=open('LICENSE.txt').read(),
+    license="WTFPL",
     keywords="videos files opensubtitle",
     install_requires=open('requirements.txt').read(),
 
