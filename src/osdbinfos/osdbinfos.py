@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 import os
 import sys
 import tempfile
+import socket
 
 import xmlrpclib
 from datetime import datetime, timedelta
@@ -16,7 +17,7 @@ from dogpile.cache import make_region
 import logging
 logger = logging.getLogger(__name__)
 
-from version import __version__
+__version__=pkg_resources.require("osdbinfos")[0].version
 
 
 USER_AGENT = "OsdbInfos v%s" % __version__
@@ -32,17 +33,41 @@ region = make_region().configure(
     }
 )
 
+import httplib
+class TimeoutTransport(xmlrpclib.Transport):
+
+    def __init__(self, timeout = 10.0, *args, **kwargs):
+        xmlrpclib.Transport.__init__(self, *args, **kwargs)
+        self.timeout = timeout
+
+    def make_connection(self, host):
+        h = httplib.HTTPConnection(host=host, timeout=self.timeout)
+        return h
+
+class OpenSutitlesError(Exception):
+    """Generic module errors"""
+    pass
+
+class OpenSutitlesTimeoutError(OpenSutitlesError, socket.timeout):
+    """ Exception raised when opensubtitle timeouts"""
+    pass
+
+class OpenSutitlesInvalidSizeError(Exception):
+    """Exceptio nraised when a file is too small"""
+    pass
+
 
 class OpenSutitles(object):
     STATUS_OK = '200 OK'
 
     url = "http://api.opensubtitles.org/xml-rpc"
 
-    def __init__(self, user='', password=''):
+    def __init__(self, user='', password='', timeout=10):
         self.token = None
         self.user = user
         self.password = password
-        self.server = xmlrpclib.ServerProxy(self.url)
+        transport = TimeoutTransport(timeout)
+        self.server = xmlrpclib.ServerProxy(self.url, transport=transport)
         self.last_query_time = None
         self.state_filename = os.path.join(tempfile.gettempdir(), 'osdbinfos.dat')
         self.load_state()
@@ -66,9 +91,10 @@ class OpenSutitles(object):
                     self.last_query_time = state['last_query_time']
                     self.token = state['token']
                 except ValueError:
-                    logger.debug("Couldnot deserialize state")
+                    logger.debug("Could not deserialize state")
 
     def is_token_expired(self):
+        """ Returns True if the token has expired """
         if self.token is None:
             return True
         if self.last_query_time is None:
@@ -79,12 +105,17 @@ class OpenSutitles(object):
         return False
 
     def register(self):
+        """ Register client on opensubtitles to get token"""
         if self.is_token_expired():
             logger.debug("Registering")
-            result = self.server.LogIn(
-                self.user, self.password, 'en', USER_AGENT)
-            if result is not None and "token" in result:
-                self.token = result["token"]
+            try:
+                result = self.server.LogIn(
+                    self.user, self.password, 'en', USER_AGENT
+                )
+                if result is not None and "token" in result:
+                    self.token = result["token"]
+            except socket.timeout:
+                raise OpenSutitlesTimeoutError()
         else:
             logger.debug("Token do not expires yet, no need for registration")
 
@@ -93,7 +124,7 @@ class OpenSutitles(object):
         logger.debug("Compute hash for path %s", path)
         try:
 
-            longlongformat = 'q'  # long long
+            longlongformat = b'q'  # long long
             bytesize = struct.calcsize(longlongformat)
 
             with open(path, "rb") as f:
@@ -133,12 +164,24 @@ class OpenSutitles(object):
 
     @region.cache_on_arguments()
     def get_infos(self, *movie_hash):
+        ret = []
+
+        if len(movie_hash) == 0:
+            logger.error("Empty list")
+            return ret
+        movie_hash = filter(lambda x: x is not None, movie_hash)
+        if len(movie_hash) == 0:
+            logger.error("List containing only None value")
+            return ret
+
         self.register()
         self.last_query_time = datetime.now()
         logger.debug("Get infos for %s hashes", len(movie_hash))
-        ret = []
+        try:
+            res = self.server.CheckMovieHash(self.token or False, movie_hash)
+        except socket.timeout:
+            raise OpenSutitlesTimeoutError()
 
-        res = self.server.CheckMovieHash(self.token or False, movie_hash)
         if res['status'] == self.STATUS_OK:
             for _hash in res['data']:
                 result = {}
@@ -187,7 +230,6 @@ class OpenSutitles(object):
                             logger.exception(
                                 u"episode number was not an integer"
                             )
-
                     ret.append(result)
                 else:
                     ret.append({'movie_hash': _hash})
