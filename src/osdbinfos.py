@@ -7,7 +7,6 @@ import tempfile
 import xmlrpclib
 from datetime import datetime, timedelta
 
-import os
 import struct
 
 import pkg_resources
@@ -49,7 +48,7 @@ class OpenSutitles(object):
         self.load_state()
 
     def store_state(self):
-        """ Store last query time + token to qvoidtoo many registration on OSDB
+        """ Store last query time + token to avoid too many registration on OSDB
         """
         state = {
             'last_query_time': self.last_query_time,
@@ -158,8 +157,7 @@ class OpenSutitles(object):
                         title = datas["MovieName"]
                         try:
                             result['serie_title'] = title.split('"')[1].strip()
-                            result['episode_title'] = title.split(
-                                '"')[2].strip()
+                            result['episode_title'] = title.split('"')[2].strip()
                         except IndexError:
                             pass
                         result['season_number'] = datas.get(
@@ -215,7 +213,7 @@ def main():
     if len(sys.argv) > 1:
         print(json_dumps(osdb.get_files_infos(sys.argv[1:])))
     else:
-        print "Please provide one or more path as argument"
+        print("Please provide one or more path as argument")
         exit(1)
 
 if __name__ == "__main__":
