@@ -90,7 +90,7 @@ class OpenSutitles(object):
 
     def get_hash(self, path):
         """ Return the computed hash to be sent to OS server"""
-        logger.debug("Conpute hash for path %s", path)
+        logger.debug("Compute hash for path %s", path)
         try:
 
             longlongformat = 'q'  # long long
