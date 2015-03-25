@@ -12,7 +12,6 @@ import struct
 
 import pkg_resources
 from minibelt import json_loads, json_dumps
-from dogpile.cache import make_region
 
 import logging
 logger = logging.getLogger(__name__)
@@ -25,13 +24,6 @@ USER_AGENT = "OsdbInfos v%s" % __version__
 
 TOKEN_EXPIRATION = timedelta(minutes=14)
 
-region = make_region().configure(
-    'dogpile.cache.dbm',
-    expiration_time=3600,
-    arguments={
-        "filename": os.path.join(tempfile.gettempdir(), "osdbinfos.cache")
-    }
-)
 
 import httplib
 class TimeoutTransport(xmlrpclib.Transport):
@@ -162,7 +154,6 @@ class OpenSutitles(object):
             imdbid = 'tt' + imdbid
         return imdbid.encode("utf-8")
 
-    @region.cache_on_arguments()
     def get_infos(self, *movie_hash):
         ret = []
 
