@@ -8,7 +8,6 @@ import socket
 import xmlrpclib
 from datetime import datetime, timedelta
 
-import os
 import struct
 
 import pkg_resources
@@ -66,7 +65,7 @@ class OpenSutitles(object):
         self.load_state()
 
     def store_state(self):
-        """ Store last query time + token to qvoidtoo many registration on OSDB
+        """ Store last query time + token to avoid too many registration on OSDB
         """
         state = {
             'last_query_time': self.last_query_time,
@@ -114,7 +113,7 @@ class OpenSutitles(object):
 
     def get_hash(self, path):
         """ Return the computed hash to be sent to OS server"""
-        logger.debug("Conpute hash for path %s", path)
+        logger.debug("Compute hash for path %s", path)
         try:
 
             longlongformat = b'q'  # long long
@@ -247,7 +246,7 @@ def main():
     if len(sys.argv) > 1:
         print(json_dumps(osdb.get_files_infos(sys.argv[1:])))
     else:
-        print "Please provide one or more path as argument"
+        print("Please provide one or more path as argument")
         exit(1)
 
 if __name__ == "__main__":
