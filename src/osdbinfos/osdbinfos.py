@@ -16,7 +16,7 @@ from minibelt import json_loads, json_dumps
 import logging
 logger = logging.getLogger(__name__)
 
-__version__=pkg_resources.require("osdbinfos")[0].version
+__version__ = pkg_resources.require("osdbinfos")[0].version
 
 
 USER_AGENT = "OsdbInfos v%s" % __version__
@@ -26,9 +26,11 @@ TOKEN_EXPIRATION = timedelta(minutes=14)
 
 
 import httplib
+
+
 class TimeoutTransport(xmlrpclib.Transport):
 
-    def __init__(self, timeout = 10.0, *args, **kwargs):
+    def __init__(self, timeout=10.0, *args, **kwargs):
         xmlrpclib.Transport.__init__(self, *args, **kwargs)
         self.timeout = timeout
 
@@ -36,16 +38,26 @@ class TimeoutTransport(xmlrpclib.Transport):
         h = httplib.HTTPConnection(host=host, timeout=self.timeout)
         return h
 
+
 class OpenSutitlesError(Exception):
+
     """Generic module errors"""
     pass
 
+
 class OpenSutitlesTimeoutError(OpenSutitlesError, socket.timeout):
+
     """ Exception raised when opensubtitle timeouts"""
     pass
 
-class OpenSutitlesInvalidSizeError(Exception):
+
+class OpenSutitlesInvalidSizeError(OpenSutitlesError):
+
     """Exceptio nraised when a file is too small"""
+    pass
+
+
+class OpenSutitlesServiceUnavailable(OpenSutitlesError):
     pass
 
 
@@ -165,13 +177,20 @@ class OpenSutitles(object):
             logger.error("List containing only None value")
             return ret
 
-        self.register()
-        self.last_query_time = datetime.now()
-        logger.debug("Get infos for %s hashes", len(movie_hash))
         try:
+            self.register()
+            self.last_query_time = datetime.now()
+            logger.debug("Get infos for %s hashes", len(movie_hash))
             res = self.server.CheckMovieHash(self.token or False, movie_hash)
         except socket.timeout:
             raise OpenSutitlesTimeoutError()
+        except xmlrpclib.ProtocolError as e:
+            if e.errcode == 503:
+                raise OpenSutitlesServiceUnavailable()
+            else:
+                raise OpenSutitlesError()
+        except Exception as e:
+            raise OpenSutitlesError()
 
         if res['status'] == self.STATUS_OK:
             for _hash in res['data']:
@@ -240,6 +259,7 @@ class OpenSutitles(object):
             for _hash in _hashs_infos
         }
         return _files_hashes
+
 
 def main():
     osdb = OpenSutitles()
