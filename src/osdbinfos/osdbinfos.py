@@ -50,7 +50,9 @@ class OpenSutitlesTimeoutError(OpenSutitlesError, socket.timeout):
     """ Exception raised when opensubtitle timeouts"""
     pass
 
-class OpenSutitlesInvalidSizeError(Exception):
+
+class OpenSutitlesInvalidSizeError(OpenSutitlesError):
+
     """Exceptio nraised when a file is too small"""
     pass
 
