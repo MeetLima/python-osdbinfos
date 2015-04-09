@@ -16,7 +16,7 @@ from minibelt import json_loads, json_dumps
 import logging
 logger = logging.getLogger(__name__)
 
-__version__=pkg_resources.require("osdbinfos")[0].version
+__version__ = pkg_resources.require("osdbinfos")[0].version
 
 
 USER_AGENT = "OsdbInfos v%s" % __version__
@@ -26,9 +26,11 @@ TOKEN_EXPIRATION = timedelta(minutes=14)
 
 
 import httplib
+
+
 class TimeoutTransport(xmlrpclib.Transport):
 
-    def __init__(self, timeout = 10.0, *args, **kwargs):
+    def __init__(self, timeout=10.0, *args, **kwargs):
         xmlrpclib.Transport.__init__(self, *args, **kwargs)
         self.timeout = timeout
 
@@ -36,11 +38,15 @@ class TimeoutTransport(xmlrpclib.Transport):
         h = httplib.HTTPConnection(host=host, timeout=self.timeout)
         return h
 
+
 class OpenSutitlesError(Exception):
+
     """Generic module errors"""
     pass
 
+
 class OpenSutitlesTimeoutError(OpenSutitlesError, socket.timeout):
+
     """ Exception raised when opensubtitle timeouts"""
     pass
 
@@ -251,6 +257,7 @@ class OpenSutitles(object):
             for _hash in _hashs_infos
         }
         return _files_hashes
+
 
 def main():
     osdb = OpenSutitles()
