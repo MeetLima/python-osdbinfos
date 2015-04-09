@@ -49,6 +49,10 @@ class OpenSutitlesInvalidSizeError(Exception):
     pass
 
 
+class OpenSutitlesServiceUnavailable(OpenSutitlesError):
+    pass
+
+
 class OpenSutitles(object):
     STATUS_OK = '200 OK'
 
@@ -165,13 +169,20 @@ class OpenSutitles(object):
             logger.error("List containing only None value")
             return ret
 
-        self.register()
-        self.last_query_time = datetime.now()
-        logger.debug("Get infos for %s hashes", len(movie_hash))
         try:
+            self.register()
+            self.last_query_time = datetime.now()
+            logger.debug("Get infos for %s hashes", len(movie_hash))
             res = self.server.CheckMovieHash(self.token or False, movie_hash)
         except socket.timeout:
             raise OpenSutitlesTimeoutError()
+        except xmlrpclib.ProtocolError as e:
+            if e.errcode == 503:
+                raise OpenSutitlesServiceUnavailable()
+            else:
+                raise OpenSutitlesError()
+        except Exception as e:
+            raise OpenSutitlesError()
 
         if res['status'] == self.STATUS_OK:
             for _hash in res['data']:
