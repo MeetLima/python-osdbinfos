@@ -1,11 +1,18 @@
 # coding: utf-8
-from __future__ import unicode_literals
 import os
 import sys
 import tempfile
 import socket
 
-import xmlrpclib
+try:
+    # python 2
+    import xmlrpclib
+    import httplib
+except ImportError:
+    # python 3
+    import xmlrpc.client as  xmlrpclib
+    import http.client as  httplib
+
 from datetime import datetime, timedelta
 
 import struct
@@ -23,10 +30,6 @@ USER_AGENT = "OsdbInfos v%s" % __version__
 
 
 TOKEN_EXPIRATION = timedelta(minutes=14)
-
-
-import httplib
-
 
 class TimeoutTransport(xmlrpclib.Transport):
 
@@ -138,7 +141,7 @@ class OpenSutitles(object):
                 if filesize < 65536 * 2:
                     return None
 
-                for x in range(65536 / bytesize):
+                for x in range(int(65536 / bytesize)):
                     buffer = f.read(bytesize)
                     (l_value,) = struct.unpack(longlongformat, buffer)
                     hash += l_value
@@ -146,7 +149,7 @@ class OpenSutitles(object):
                     hash = hash & 0xFFFFFFFFFFFFFFFF
 
                 f.seek(max(0, filesize - 65536), 0)
-                for x in range(65536 / bytesize):
+                for x in range(int(65536 / bytesize)):
                     buffer = f.read(bytesize)
                     (l_value,) = struct.unpack(longlongformat, buffer)
                     hash += l_value
@@ -159,12 +162,10 @@ class OpenSutitles(object):
             return None
 
     def clean_imdbid(self, imdbid):
-        imdbid.decode('utf-8')
-
         if not imdbid.startswith('tt'):
-            imdbid = imdbid.rjust(7, b'0')
+            imdbid = imdbid.rjust(7, '0')
             imdbid = 'tt' + imdbid
-        return imdbid.encode("utf-8")
+        return imdbid
 
     def get_infos(self, *movie_hash):
         ret = []
@@ -172,7 +173,7 @@ class OpenSutitles(object):
         if len(movie_hash) == 0:
             logger.error("Empty list")
             return ret
-        movie_hash = filter(lambda x: x is not None, movie_hash)
+        movie_hash = list(filter(lambda x: x is not None, movie_hash))
         if len(movie_hash) == 0:
             logger.error("List containing only None value")
             return ret
@@ -198,6 +199,8 @@ class OpenSutitles(object):
                 datas = res['data'][_hash]
                 if len(datas) > 0:
                     result['movie_hash'] = datas.get('MovieHash', None)
+                    if result['movie_hash'] is not None:
+                        result['movie_hash'] = result['movie_hash'].rjust(16, '0')
                     if "MovieImdbID" in datas:
                         result['imdb_id'] = self.clean_imdbid(
                             datas['MovieImdbID']
@@ -245,7 +248,7 @@ class OpenSutitles(object):
                     ret.append({'movie_hash': _hash})
 
         # flatten if multiple entries
-        ret = {v['movie_hash']: v for v in ret}
+        ret = {v['movie_hash'] : v for v in ret}
         self.store_state()
         return ret
 
