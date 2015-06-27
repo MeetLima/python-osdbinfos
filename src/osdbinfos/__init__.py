@@ -1,1 +1,1 @@
-from osdbinfos import *
+from .osdbinfos import *
