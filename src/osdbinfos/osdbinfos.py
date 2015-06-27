@@ -63,6 +63,8 @@ class OpenSutitlesInvalidSizeError(OpenSutitlesError):
 class OpenSutitlesServiceUnavailable(OpenSutitlesError):
     pass
 
+class OpenSutitlesInvalidParam(OpenSutitlesError, ValueError):
+    pass
 
 class OpenSutitles(object):
     STATUS_OK = '200 OK'
@@ -262,6 +264,42 @@ class OpenSutitles(object):
             for _hash in _hashs_infos
         }
         return _files_hashes
+
+
+    def insert_movie_hash(self, hashes):
+        """ Call xmlrpc.InsertMovieHash
+        :param hashes: list of dict containing at leat imdbid, moviehash, moviebytesize
+        :return: return the data  field from osdb response
+        """
+
+        # refformat imdbids
+        for data in hashes:
+            try:
+                data['imdbid'] = data['imdbid'].replace('tt', '')
+            except KeyError:
+                raise OpenSutitlesInvalidParam("Key imdbid is missing")
+
+        try:
+            self.register()
+            self.last_query_time = datetime.now()
+            logger.debug("Insert %s hashes", len(hashes))
+            res = self.server.InsertMovieHash(self.token or False, hashes)
+        except socket.timeout:
+            raise OpenSutitlesTimeoutError()
+        except xmlrpclib.ProtocolError as e:
+            if e.errcode == 503:
+                raise OpenSutitlesServiceUnavailable()
+            else:
+                raise OpenSutitlesError()
+        except Exception as e:
+            raise OpenSutitlesError()
+
+        if '408' in res['status']:
+            raise OpenSutitlesInvalidParam('Invalid parameters')
+
+        if res['status'] == self.STATUS_OK:
+            result = res['data']
+            return result
 
 
 def main():
