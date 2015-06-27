@@ -287,12 +287,14 @@ class OpenSutitles(object):
         except socket.timeout:
             raise OpenSutitlesTimeoutError()
         except xmlrpclib.ProtocolError as e:
+            logger.exception("xmlrpc error")
             if e.errcode == 503:
                 raise OpenSutitlesServiceUnavailable()
             else:
-                raise OpenSutitlesError()
+                raise OpenSutitlesError(e)
         except Exception as e:
-            raise OpenSutitlesError()
+            logger.exception("unknown error")
+            raise OpenSutitlesError(e)
 
         if '408' in res['status']:
             raise OpenSutitlesInvalidParam('Invalid parameters')
