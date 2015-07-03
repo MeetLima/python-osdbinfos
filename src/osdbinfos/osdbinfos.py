@@ -196,58 +196,60 @@ class OpenSutitles(object):
             raise OpenSutitlesError()
 
         if res['status'] == self.STATUS_OK:
-            for _hash in res['data']:
-                result = {}
-                datas = res['data'][_hash]
-                if len(datas) > 0:
-                    result['movie_hash'] = datas.get('MovieHash', None)
-                    if result['movie_hash'] is not None:
-                        result['movie_hash'] = result['movie_hash'].rjust(16, '0')
-                    if "MovieImdbID" in datas:
-                        result['imdb_id'] = self.clean_imdbid(
-                            datas['MovieImdbID']
-                        )
-                    kind = result['kind'] = datas.get('MovieKind', None)
-                    if kind == "movie":
-                        result['movie_name'] = datas.get('MovieName', None)
-                        result['movie_year'] = datas.get('MovieYear', None)
-                    elif kind == "episode":
-                        title = datas["MovieName"]
-                        try:
-                            result['serie_title'] = title.split('"')[1].strip()
-                            result['episode_title'] = title.split('"')[2].strip()
-                        except IndexError:
-                            pass
-                        result['season_number'] = datas.get(
-                            'SeriesSeason', None
-                        )
-                        result['episode_number'] = datas.get(
-                            'SeriesEpisode', None
-                        )
+            datas = res['data']
 
-                        try:
-                            result['season_number'] = int(
-                                result['season_number']
-                            )
-                        except (TypeError,):
-                            logger.exception("season number was none")
-                        except (ValueError,):
-                            logger.exception(
-                                u"season number was not an integer"
-                            )
-                        try:
-                            result['episode_number'] = int(
-                                result['episode_number']
-                            )
-                        except (TypeError,):
-                            logger.exception("episode number was none")
-                        except (ValueError,):
-                            logger.exception(
-                                u"episode number was not an integer"
-                            )
-                    ret.append(result)
-                else:
-                    ret.append({'movie_hash': _hash})
+            if isinstance(datas, dict):
+                # normal case
+                return self._parse_dict(datas)
+            elif isinstance(datas, list):
+                # osdb gave us a list, which is not what is expected.
+                # transform the list in a dictionary and parse it as expected
+                datas = {x['MovieHash']: x for x in datas}
+                return self._parse_dict(datas)
+
+    def _parse_dict(self, datas):
+        """Parse osdb result as a dict"""
+        ret = []
+        for _hash in datas:
+            if isinstance(_hash, dict):
+                # in some case, osdb c
+                pass
+            result = {}
+            datas = datas[_hash]
+            if len(datas) > 0:
+                result['movie_hash'] = datas.get('MovieHash', None)
+                if "MovieImdbID" in datas:
+                    result['imdb_id'] = self.clean_imdbid(datas['MovieImdbID'])
+                kind = result['kind'] = datas.get('MovieKind', None)
+                if kind == "movie":
+                    result['movie_name'] = datas.get('MovieName', None)
+                    result['movie_year'] = datas.get('MovieYear', None)
+                elif kind == "episode":
+                    title = datas["MovieName"]
+                    try:
+                        result['serie_title'] = title.split('"')[1].strip()
+                        result['episode_title'] = title.split('"')[2].strip()
+                    except IndexError:
+                        pass
+                    result['season_number'] = datas.get('SeriesSeason', None)
+                    result['episode_number'] = datas.get('SeriesEpisode', None)
+
+                    try:
+                        result['season_number'] = int(result['season_number'])
+                    except (TypeError, ):
+                        logger.exception("season number was none")
+                    except (ValueError, ):
+                        logger.exception(u"season number was not an integer")
+                    try:
+                        result['episode_number'] = int(
+                            result['episode_number'])
+                    except (TypeError, ):
+                        logger.exception("episode number was none")
+                    except (ValueError, ):
+                        logger.exception(u"episode number was not an integer")
+                ret.append(result)
+            else:
+                ret.append({'movie_hash': _hash})
 
         # flatten if multiple entries
         ret = {v['movie_hash'] : v for v in ret}
