@@ -25,14 +25,11 @@ logger = logging.getLogger(__name__)
 
 __version__ = pkg_resources.require("osdbinfos")[0].version
 
-
 USER_AGENT = "OsdbInfos v%s" % __version__
-
 
 TOKEN_EXPIRATION = timedelta(minutes=14)
 
 class TimeoutTransport(xmlrpclib.Transport):
-
     def __init__(self, timeout=10.0, *args, **kwargs):
         xmlrpclib.Transport.__init__(self, *args, **kwargs)
         self.timeout = timeout
@@ -43,19 +40,16 @@ class TimeoutTransport(xmlrpclib.Transport):
 
 
 class OpenSutitlesError(Exception):
-
     """Generic module errors"""
     pass
 
 
 class OpenSutitlesTimeoutError(OpenSutitlesError, socket.timeout):
-
     """ Exception raised when opensubtitle timeouts"""
     pass
 
 
 class OpenSutitlesInvalidSizeError(OpenSutitlesError):
-
     """Exceptio nraised when a file is too small"""
     pass
 
@@ -78,16 +72,14 @@ class OpenSutitles(object):
         transport = TimeoutTransport(timeout)
         self.server = xmlrpclib.ServerProxy(self.url, transport=transport)
         self.last_query_time = None
-        self.state_filename = os.path.join(tempfile.gettempdir(), 'osdbinfos.dat')
+        self.state_filename = os.path.join(tempfile.gettempdir(),
+                                           'osdbinfos.dat')
         self.load_state()
 
     def store_state(self):
         """ Store last query time + token to avoid too many registration on OSDB
         """
-        state = {
-            'last_query_time': self.last_query_time,
-            'token': self.token
-        }
+        state = {'last_query_time': self.last_query_time, 'token': self.token}
         with open(self.state_filename, 'w') as fstate:
             fstate.write(json_dumps(state))
 
@@ -118,9 +110,8 @@ class OpenSutitles(object):
         if self.is_token_expired():
             logger.debug("Registering")
             try:
-                result = self.server.LogIn(
-                    self.user, self.password, 'en', USER_AGENT
-                )
+                result = self.server.LogIn(self.user, self.password, 'en',
+                                           USER_AGENT)
                 if result is not None and "token" in result:
                     self.token = result["token"]
             except socket.timeout:
@@ -145,7 +136,7 @@ class OpenSutitles(object):
 
                 for x in range(int(65536 / bytesize)):
                     buffer = f.read(bytesize)
-                    (l_value,) = struct.unpack(longlongformat, buffer)
+                    (l_value, ) = struct.unpack(longlongformat, buffer)
                     hash += l_value
                     # to remain as 64bit number
                     hash = hash & 0xFFFFFFFFFFFFFFFF
@@ -153,13 +144,13 @@ class OpenSutitles(object):
                 f.seek(max(0, filesize - 65536), 0)
                 for x in range(int(65536 / bytesize)):
                     buffer = f.read(bytesize)
-                    (l_value,) = struct.unpack(longlongformat, buffer)
+                    (l_value, ) = struct.unpack(longlongformat, buffer)
                     hash += l_value
                     hash = hash & 0xFFFFFFFFFFFFFFFF
 
                 returnedhash = "%016x" % hash
                 return returnedhash
-        except(IOError, ):
+        except (IOError, ):
             logger.exception(u"Could not compute hash")
             return None
 
@@ -170,6 +161,7 @@ class OpenSutitles(object):
         return imdbid
 
     def get_infos(self, *movie_hash):
+
         ret = []
 
         if len(movie_hash) == 0:
@@ -313,6 +305,7 @@ def main():
     else:
         print("Please provide one or more path as argument")
         exit(1)
+
 
 if __name__ == "__main__":
     main()
