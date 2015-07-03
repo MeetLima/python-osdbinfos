@@ -1,11 +1,18 @@
 # coding: utf-8
-from __future__ import unicode_literals
 import os
 import sys
 import tempfile
 import socket
 
-import xmlrpclib
+try:
+    # python 2
+    import xmlrpclib
+    import httplib
+except ImportError:
+    # python 3
+    import xmlrpc.client as  xmlrpclib
+    import http.client as  httplib
+
 from datetime import datetime, timedelta
 
 import struct
@@ -18,18 +25,11 @@ logger = logging.getLogger(__name__)
 
 __version__ = pkg_resources.require("osdbinfos")[0].version
 
-
 USER_AGENT = "OsdbInfos v%s" % __version__
-
 
 TOKEN_EXPIRATION = timedelta(minutes=14)
 
-
-import httplib
-
-
 class TimeoutTransport(xmlrpclib.Transport):
-
     def __init__(self, timeout=10.0, *args, **kwargs):
         xmlrpclib.Transport.__init__(self, *args, **kwargs)
         self.timeout = timeout
@@ -40,19 +40,16 @@ class TimeoutTransport(xmlrpclib.Transport):
 
 
 class OpenSutitlesError(Exception):
-
     """Generic module errors"""
     pass
 
 
 class OpenSutitlesTimeoutError(OpenSutitlesError, socket.timeout):
-
     """ Exception raised when opensubtitle timeouts"""
     pass
 
 
 class OpenSutitlesInvalidSizeError(OpenSutitlesError):
-
     """Exceptio nraised when a file is too small"""
     pass
 
@@ -60,6 +57,8 @@ class OpenSutitlesInvalidSizeError(OpenSutitlesError):
 class OpenSutitlesServiceUnavailable(OpenSutitlesError):
     pass
 
+class OpenSutitlesInvalidParam(OpenSutitlesError, ValueError):
+    pass
 
 class OpenSutitles(object):
     STATUS_OK = '200 OK'
@@ -73,16 +72,14 @@ class OpenSutitles(object):
         transport = TimeoutTransport(timeout)
         self.server = xmlrpclib.ServerProxy(self.url, transport=transport)
         self.last_query_time = None
-        self.state_filename = os.path.join(tempfile.gettempdir(), 'osdbinfos.dat')
+        self.state_filename = os.path.join(tempfile.gettempdir(),
+                                           'osdbinfos.dat')
         self.load_state()
 
     def store_state(self):
         """ Store last query time + token to avoid too many registration on OSDB
         """
-        state = {
-            'last_query_time': self.last_query_time,
-            'token': self.token
-        }
+        state = {'last_query_time': self.last_query_time, 'token': self.token}
         with open(self.state_filename, 'w') as fstate:
             fstate.write(json_dumps(state))
 
@@ -113,9 +110,8 @@ class OpenSutitles(object):
         if self.is_token_expired():
             logger.debug("Registering")
             try:
-                result = self.server.LogIn(
-                    self.user, self.password, 'en', USER_AGENT
-                )
+                result = self.server.LogIn(self.user, self.password, 'en',
+                                           USER_AGENT)
                 if result is not None and "token" in result:
                     self.token = result["token"]
             except socket.timeout:
@@ -138,41 +134,40 @@ class OpenSutitles(object):
                 if filesize < 65536 * 2:
                     return None
 
-                for x in range(65536 / bytesize):
+                for x in range(int(65536 / bytesize)):
                     buffer = f.read(bytesize)
-                    (l_value,) = struct.unpack(longlongformat, buffer)
+                    (l_value, ) = struct.unpack(longlongformat, buffer)
                     hash += l_value
                     # to remain as 64bit number
                     hash = hash & 0xFFFFFFFFFFFFFFFF
 
                 f.seek(max(0, filesize - 65536), 0)
-                for x in range(65536 / bytesize):
+                for x in range(int(65536 / bytesize)):
                     buffer = f.read(bytesize)
-                    (l_value,) = struct.unpack(longlongformat, buffer)
+                    (l_value, ) = struct.unpack(longlongformat, buffer)
                     hash += l_value
                     hash = hash & 0xFFFFFFFFFFFFFFFF
 
                 returnedhash = "%016x" % hash
                 return returnedhash
-        except(IOError, ):
+        except (IOError, ):
             logger.exception(u"Could not compute hash")
             return None
 
     def clean_imdbid(self, imdbid):
-        imdbid.decode('utf-8')
-
         if not imdbid.startswith('tt'):
-            imdbid = imdbid.rjust(7, b'0')
+            imdbid = imdbid.rjust(7, '0')
             imdbid = 'tt' + imdbid
-        return imdbid.encode("utf-8")
+        return imdbid
 
     def get_infos(self, *movie_hash):
+
         ret = []
 
         if len(movie_hash) == 0:
             logger.error("Empty list")
             return ret
-        movie_hash = filter(lambda x: x is not None, movie_hash)
+        movie_hash = list(filter(lambda x: x is not None, movie_hash))
         if len(movie_hash) == 0:
             logger.error("List containing only None value")
             return ret
@@ -193,59 +188,63 @@ class OpenSutitles(object):
             raise OpenSutitlesError()
 
         if res['status'] == self.STATUS_OK:
-            for _hash in res['data']:
-                result = {}
-                datas = res['data'][_hash]
-                if len(datas) > 0:
-                    result['movie_hash'] = datas.get('MovieHash', None)
-                    if "MovieImdbID" in datas:
-                        result['imdb_id'] = self.clean_imdbid(
-                            datas['MovieImdbID']
-                        )
-                    kind = result['kind'] = datas.get('MovieKind', None)
-                    if kind == "movie":
-                        result['movie_name'] = datas.get('MovieName', None)
-                        result['movie_year'] = datas.get('MovieYear', None)
-                    elif kind == "episode":
-                        title = datas["MovieName"]
-                        try:
-                            result['serie_title'] = title.split('"')[1].strip()
-                            result['episode_title'] = title.split('"')[2].strip()
-                        except IndexError:
-                            pass
-                        result['season_number'] = datas.get(
-                            'SeriesSeason', None
-                        )
-                        result['episode_number'] = datas.get(
-                            'SeriesEpisode', None
-                        )
+            datas = res['data']
 
-                        try:
-                            result['season_number'] = int(
-                                result['season_number']
-                            )
-                        except (TypeError,):
-                            logger.exception("season number was none")
-                        except (ValueError,):
-                            logger.exception(
-                                u"season number was not an integer"
-                            )
-                        try:
-                            result['episode_number'] = int(
-                                result['episode_number']
-                            )
-                        except (TypeError,):
-                            logger.exception("episode number was none")
-                        except (ValueError,):
-                            logger.exception(
-                                u"episode number was not an integer"
-                            )
-                    ret.append(result)
-                else:
-                    ret.append({'movie_hash': _hash})
+            if isinstance(datas, dict):
+                # normal case
+                return self._parse_dict(datas)
+            elif isinstance(datas, list):
+                # osdb gave us a list, which is not what is expected.
+                # transform the list in a dictionary and parse it as expected
+                datas = {x['MovieHash']: x for x in datas}
+                return self._parse_dict(datas)
+
+    def _parse_dict(self, datas):
+        """Parse osdb result as a dict"""
+        ret = []
+        for _hash in datas:
+            if isinstance(_hash, dict):
+                # in some case, osdb c
+                pass
+            result = {}
+            datas = datas[_hash]
+            if len(datas) > 0:
+                result['movie_hash'] = datas.get('MovieHash', None)
+                if "MovieImdbID" in datas:
+                    result['imdb_id'] = self.clean_imdbid(datas['MovieImdbID'])
+                kind = result['kind'] = datas.get('MovieKind', None)
+                if kind == "movie":
+                    result['movie_name'] = datas.get('MovieName', None)
+                    result['movie_year'] = datas.get('MovieYear', None)
+                elif kind == "episode":
+                    title = datas["MovieName"]
+                    try:
+                        result['serie_title'] = title.split('"')[1].strip()
+                        result['episode_title'] = title.split('"')[2].strip()
+                    except IndexError:
+                        pass
+                    result['season_number'] = datas.get('SeriesSeason', None)
+                    result['episode_number'] = datas.get('SeriesEpisode', None)
+
+                    try:
+                        result['season_number'] = int(result['season_number'])
+                    except (TypeError, ):
+                        logger.exception("season number was none")
+                    except (ValueError, ):
+                        logger.exception(u"season number was not an integer")
+                    try:
+                        result['episode_number'] = int(
+                            result['episode_number'])
+                    except (TypeError, ):
+                        logger.exception("episode number was none")
+                    except (ValueError, ):
+                        logger.exception(u"episode number was not an integer")
+                ret.append(result)
+            else:
+                ret.append({'movie_hash': _hash})
 
         # flatten if multiple entries
-        ret = {v['movie_hash']: v for v in ret}
+        ret = {v['movie_hash'] : v for v in ret}
         self.store_state()
         return ret
 
@@ -261,6 +260,44 @@ class OpenSutitles(object):
         return _files_hashes
 
 
+    def insert_movie_hash(self, hashes):
+        """ Call xmlrpc.InsertMovieHash
+        :param hashes: list of dict containing at leat imdbid, moviehash, moviebytesize
+        :return: return the data  field from osdb response
+        """
+
+        # refformat imdbids
+        for data in hashes:
+            try:
+                data['imdbid'] = data['imdbid'].replace('tt', '')
+            except KeyError:
+                raise OpenSutitlesInvalidParam("Key imdbid is missing")
+
+        try:
+            self.register()
+            self.last_query_time = datetime.now()
+            logger.debug("Insert %s hashes", len(hashes))
+            res = self.server.InsertMovieHash(self.token or False, hashes)
+        except socket.timeout:
+            raise OpenSutitlesTimeoutError()
+        except xmlrpclib.ProtocolError as e:
+            logger.exception("xmlrpc error")
+            if e.errcode == 503:
+                raise OpenSutitlesServiceUnavailable()
+            else:
+                raise OpenSutitlesError(e)
+        except Exception as e:
+            logger.exception("unknown error")
+            raise OpenSutitlesError(e)
+
+        if '408' in res['status']:
+            raise OpenSutitlesInvalidParam('Invalid parameters')
+
+        if res['status'] == self.STATUS_OK:
+            result = res['data']
+            return result
+
+
 def main():
     osdb = OpenSutitles()
     if len(sys.argv) > 1:
@@ -268,6 +305,7 @@ def main():
     else:
         print("Please provide one or more path as argument")
         exit(1)
+
 
 if __name__ == "__main__":
     main()
