@@ -162,7 +162,7 @@ class OpenSutitles(object):
 
     def get_infos(self, *movie_hash):
 
-        ret = []
+        ret = {}
 
         if len(movie_hash) == 0:
             logger.error("Empty list")
