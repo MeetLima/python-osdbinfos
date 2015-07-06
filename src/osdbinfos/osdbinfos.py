@@ -162,7 +162,7 @@ class OpenSutitles(object):
 
     def get_infos(self, *movie_hash):
 
-        ret = []
+        ret = {}
 
         if len(movie_hash) == 0:
             logger.error("Empty list")
@@ -196,7 +196,8 @@ class OpenSutitles(object):
             elif isinstance(datas, list):
                 # osdb gave us a list, which is not what is expected.
                 # transform the list in a dictionary and parse it as expected
-                datas = {x['MovieHash']: x for x in datas}
+                # we check the type of items
+                datas = {x['MovieHash']: x for x in datas if isinstance(x, dict)}
                 return self._parse_dict(datas)
 
     def _parse_dict(self, datas):
