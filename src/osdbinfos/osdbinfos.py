@@ -60,6 +60,9 @@ class OpenSutitlesServiceUnavailable(OpenSutitlesError):
 class OpenSutitlesInvalidParam(OpenSutitlesError, ValueError):
     pass
 
+class OpenSutitlesNetworkError(OpenSutitlesError):
+    pass
+
 class OpenSutitles(object):
     STATUS_OK = '200 OK'
 
@@ -184,8 +187,10 @@ class OpenSutitles(object):
                 raise OpenSutitlesServiceUnavailable()
             else:
                 raise OpenSutitlesError()
+        except socket.error as e:
+            raise OpenSutitlesNetworkError(str(e))
         except Exception as e:
-            raise OpenSutitlesError()
+            raise OpenSutitlesError(str(e))
 
         if res['status'] == self.STATUS_OK:
             datas = res['data']
