@@ -10,8 +10,8 @@ try:
     import httplib
 except ImportError:
     # python 3
-    import xmlrpc.client as  xmlrpclib
-    import http.client as  httplib
+    import xmlrpc.client as xmlrpclib
+    import http.client as httplib
 
 from datetime import datetime, timedelta
 
@@ -28,6 +28,7 @@ __version__ = pkg_resources.require("osdbinfos")[0].version
 USER_AGENT = "OsdbInfos v%s" % __version__
 
 TOKEN_EXPIRATION = timedelta(minutes=14)
+
 
 class TimeoutTransport(xmlrpclib.Transport):
     def __init__(self, timeout=10.0, *args, **kwargs):
@@ -57,11 +58,14 @@ class OpenSutitlesInvalidSizeError(OpenSutitlesError):
 class OpenSutitlesServiceUnavailable(OpenSutitlesError):
     pass
 
+
 class OpenSutitlesInvalidParam(OpenSutitlesError, ValueError):
     pass
 
+
 class OpenSutitlesNetworkError(OpenSutitlesError):
     pass
+
 
 class OpenSutitles(object):
     STATUS_OK = '200 OK'
@@ -250,7 +254,7 @@ class OpenSutitles(object):
                 ret.append({'movie_hash': _hash})
 
         # flatten if multiple entries
-        ret = {v['movie_hash'] : v for v in ret}
+        ret = {v['movie_hash']: v for v in ret}
         self.store_state()
         return ret
 
@@ -264,7 +268,6 @@ class OpenSutitles(object):
             for _hash in _hashs_infos
         }
         return _files_hashes
-
 
     def insert_movie_hash(self, hashes):
         """ Call xmlrpc.InsertMovieHash
