@@ -67,6 +67,58 @@ class OpenSutitlesNetworkError(OpenSutitlesError):
     pass
 
 
+class UnauthorizedOpenSutitlesError(OpenSutitlesError):
+    pass
+
+
+class MandatoryParameterMissing(OpenSutitlesError):
+    pass
+
+
+class NoSessionOpenSubtitlesError(OpenSutitlesError):
+    pass
+
+
+class DownloadLimitReachedOpenSutitleError(OpenSutitlesError):
+    pass
+
+
+class InvalidParametersOpenSutitlesError(OpenSutitlesError):
+    pass
+
+
+class MethodNotFoundOpenSutitlesError(OpenSutitlesError):
+    pass
+
+
+class UnknownOpenSubtitlesError(OpenSutitlesError):
+    pass
+
+
+class InvalidUserAgentOpenSubtitlesError(OpenSutitlesError):
+    pass
+
+
+class DisabledUserAgentOpenSubtitlesError(OpenSutitlesError):
+    pass
+
+
+class InvalidResultOpenSutitlesError(OpenSutitlesError):
+    pass
+
+ERROR_STATUS_EXCEPTIONS = {
+    '401': UnauthorizedOpenSutitlesError,
+    '405': MandatoryParameterMissing,
+    '406': NoSessionOpenSubtitlesError,
+    '407': DownloadLimitReachedOpenSutitleError,
+    '408': InvalidParametersOpenSutitlesError,
+    '409': MethodNotFoundOpenSutitlesError,
+    '410': UnknownOpenSubtitlesError,
+    '411': InvalidUserAgentOpenSubtitlesError,
+    '415': DisabledUserAgentOpenSubtitlesError,
+}
+
+
 class OpenSutitles(object):
     STATUS_OK = '200 OK'
 
@@ -190,7 +242,7 @@ class OpenSutitles(object):
             if e.errcode == 503:
                 raise OpenSutitlesServiceUnavailable()
             else:
-                raise OpenSutitlesError()
+                raise OpenSutitlesError(e)
         except socket.error as e:
             raise OpenSutitlesNetworkError(str(e))
         except Exception as e:
@@ -198,7 +250,6 @@ class OpenSutitles(object):
 
         if res['status'] == self.STATUS_OK:
             datas = res['data']
-
             if isinstance(datas, dict):
                 # normal case
                 return self._parse_dict(datas)
@@ -208,14 +259,24 @@ class OpenSutitles(object):
                 # we check the type of items
                 datas = {x['MovieHash']: x for x in datas if isinstance(x, dict)}
                 return self._parse_dict(datas)
+            else:
+                return InvalidResultOpenSutitlesError("Can't parse %s" % type(datas))
+        else:
+            status = res['status']
+            if status:
+                status_code = res['status'].split(" ")[0]
+                if status_code in ERROR_STATUS_EXCEPTIONS:
+                    # raise exception with original message
+                    raise ERROR_STATUS_EXCEPTIONS[status_code](res['status'])
+                else:
+                    raise OpenSutitlesError(res['status'])
+            else:
+                raise OpenSutitlesError("Unknown error (%s)" % status_code)
 
     def _parse_dict(self, datas):
         """Parse osdb result as a dict"""
         ret = []
         for _hash in datas:
-            if isinstance(_hash, dict):
-                # in some case, osdb c
-                pass
             result = {}
             datas = datas[_hash]
             if len(datas) > 0:
@@ -243,8 +304,7 @@ class OpenSutitles(object):
                     except (ValueError, ):
                         logger.exception(u"season number was not an integer")
                     try:
-                        result['episode_number'] = int(
-                            result['episode_number'])
+                        result['episode_number'] = int(result['episode_number'])
                     except (TypeError, ):
                         logger.exception("episode number was none")
                     except (ValueError, ):
@@ -263,10 +323,12 @@ class OpenSutitles(object):
 
         _hashs_infos = self.get_infos(*_hashs_files.keys())
 
-        _files_hashes = {
-            _hashs_files.get(_hash, None): _hashs_infos.get(_hash, None)
-            for _hash in _hashs_infos
-        }
+        _files_hashes = {}
+        if _hashs_infos:
+            _files_hashes = {
+                _hashs_files.get(_hash, None): _hashs_infos.get(_hash, None)
+                for _hash in _hashs_infos
+            }
         return _files_hashes
 
     def insert_movie_hash(self, hashes):
