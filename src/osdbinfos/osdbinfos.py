@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 import struct
 
 import pkg_resources
-from minibelt import json_loads, json_dumps
+import json
 
 import logging
 logger = logging.getLogger(__name__)
@@ -106,6 +106,7 @@ class DisabledUserAgentOpenSubtitlesError(OpenSutitlesError):
 class InvalidResultOpenSutitlesError(OpenSutitlesError):
     pass
 
+
 ERROR_STATUS_EXCEPTIONS = {
     '401': UnauthorizedOpenSutitlesError,
     '405': MandatoryParameterMissing,
@@ -138,17 +139,19 @@ class OpenSutitles(object):
     def store_state(self):
         """ Store last query time + token to avoid too many registration on OSDB
         """
-        state = {'last_query_time': self.last_query_time, 'token': self.token}
+        state = {'last_query_time': self.last_query_time.timestamp(),
+                 'token': self.token}
         with open(self.state_filename, 'w') as fstate:
-            fstate.write(json_dumps(state))
+            fstate.write(json.dumps(state))
 
     def load_state(self):
         """ Load last_query_time + token from state """
         if os.path.exists(self.state_filename):
             with open(self.state_filename, 'r') as fstate:
                 try:
-                    state = json_loads(fstate.read())
-                    self.last_query_time = state['last_query_time']
+                    state = json.loads(fstate.read())
+                    self.last_query_time = datetime.fromtimestamp(
+                        state['last_query_time'])
                     self.token = state['token']
                 except ValueError:
                     logger.debug("Could not deserialize state")
@@ -304,7 +307,8 @@ class OpenSutitles(object):
                     except (ValueError, ):
                         logger.exception(u"season number was not an integer")
                     try:
-                        result['episode_number'] = int(result['episode_number'])
+                        result['episode_number'] = int(
+                            result['episode_number'])
                     except (TypeError, ):
                         logger.exception("episode number was none")
                     except (ValueError, ):
@@ -372,7 +376,7 @@ class OpenSutitles(object):
 def main():
     osdb = OpenSutitles()
     if len(sys.argv) > 1:
-        print(json_dumps(osdb.get_files_infos(sys.argv[1:])))
+        print(json.dumps(osdb.get_files_infos(sys.argv[1:])))
     else:
         print("Please provide one or more path as argument")
         exit(1)

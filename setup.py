@@ -1,7 +1,7 @@
 import os
 from setuptools import setup, find_packages
 
-__version__ = "0.0.12"
+__version__ = "0.0.13"
 
 setup(
     name='osdbinfos',
@@ -11,7 +11,6 @@ setup(
     long_description=open('README.md').read(),
     license="WTFPL",
     keywords="videos files opensubtitle",
-    install_requires=open('requirements.txt').read(),
 
     package_dir={'': 'src'},
     packages=find_packages('src', exclude='docs'),
